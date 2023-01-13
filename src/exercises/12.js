@@ -1,4 +1,5 @@
 // The provider pattern
+import hoistNonReactStatics from 'hoist-non-react-statics'
 import React, {Fragment} from 'react'
 // 🐨 you're going to need this :)
 // import hoistNonReactStatics from 'hoist-non-react-statics'
@@ -22,7 +23,16 @@ class Toggle extends React.Component {
 }
 
 function withToggle(Component) {
-  return Component
+  const Wrapper = React.forwardRef((props, ref)=>{
+    return (
+      <Toggle.Consumer>
+        {toggleUtils=><Component {...props} toggle={toggleUtils} ref={ref}/>}
+      </Toggle.Consumer>
+    )
+  })
+  Wrapper.displayName = `withToggle(${Component.displayName || Component.name})`
+  hoistNonReactStatics(Wrapper, Component)
+  return Wrapper
   // The `withToggle` function is called a "Higher Order Component"
   // It's another way to share code and allows you to statically
   // create new components to render.

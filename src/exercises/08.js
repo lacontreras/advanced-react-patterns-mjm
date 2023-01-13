@@ -3,8 +3,10 @@
 import React from 'react'
 import {Switch} from '../switch'
 
-const callAll = (...fns) => (...args) =>
-  fns.forEach(fn => fn && fn(...args))
+const callAll =
+  (...fns) =>
+  (...args) =>
+    fns.forEach((fn) => fn && fn(...args))
 
 // Render props allow users to be in control over the UI based on state.
 // State reducers allow users to be in control over logic based on actions.
@@ -32,8 +34,31 @@ class Toggle extends React.Component {
   }
   initialState = {on: this.props.initialOn}
   state = this.initialState
+  
+  //Alernative: 
+  //setState(changes, callback)=>{
+  //  super.setState(currentState=>{
+    //return [changes]
+    //  .map(c=>typeof changes === 'function'? changes(currentState): changes)
+    //  .map(c=>this.props.stateReducer(currentState, c) || {})
+    //  .map(c=> Object.keys(c).length ? c: null)[0]
+ // })
+ // }
   // 🐨 let's add a method here called `internalSetState`. It will simulate
   // the same API as `setState(updater, callback)`:
+  internalSetState = (changes, callback) => {
+    this.setState((currentState) => {
+      const changesObject =
+        typeof changes === 'function'
+          ? changes(currentState)
+          : changes
+      const reducedChanges = this.props.stateReducer(
+        currentState,
+        changesObject,
+      )
+      return reducedChanges
+    }, callback)
+  }
   // - updater: (changes object or function that returns the changes object)
   // - callback: Function called after the state has been updated
   // This will call setState with an updater function (a function that receives the state).
@@ -49,11 +74,11 @@ class Toggle extends React.Component {
   // 🐨 Finally, update all pre-existing instances of this.setState
   // to this.internalSetState
   reset = () =>
-    this.setState(this.initialState, () =>
+    this.internalSetState(this.initialState, () =>
       this.props.onReset(this.state.on),
     )
   toggle = () =>
-    this.setState(
+    this.internalSetState(
       ({on}) => ({on: !on}),
       () => this.props.onToggle(this.state.on),
     )
@@ -109,7 +134,7 @@ class Usage extends React.Component {
         onToggle={this.handleToggle}
         onReset={this.handleReset}
       >
-        {toggle => (
+        {(toggle) => (
           <div>
             <Switch
               {...toggle.getTogglerProps({

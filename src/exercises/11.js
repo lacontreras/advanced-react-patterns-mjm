@@ -3,21 +3,119 @@ import React, {Fragment} from 'react'
 import {Switch} from '../switch'
 
 // 🐨 create your React context here with React.createContext
+const ToggleContext = React.createContext({
+  on: false,
+  toggle: () => {},
+  reset: () => {},
+  getTogglerProps: () => {},
+})
+
+const callAll =
+  (...fns) =>
+  (...args) =>
+    fns.forEach((fn) => fn && fn(...args))
 
 class Toggle extends React.Component {
   // 🐨 expose the ToggleContext.Consumer as a static property of Toggle here.
-  state = {on: false}
+  static defaultProps = {
+    initialOn: false,
+    onReset: () => {},
+    onStateChange: () => {},
+    onToggle: () => {},
+    stateReducer: (state, changes) => changes,
+  }
+
+  static stateChangesTypes = {
+    reset: '__toggle_reset__',
+    toggle: '__toggle_toggle__',
+  }
+
+  static Consumer = ToggleContext.Consumer
+
+  reset = () =>
+    this.internalSetState({type: 'reset', ...this.initialState}, () =>
+      this.props.onReset(this.getState().on),
+    )
+
   toggle = () =>
     this.setState(
       ({on}) => ({on: !on}),
       () => this.props.onToggle(this.state.on),
     )
+
+  getTogglerProps = ({onClick, ...props} = {}) => ({
+    // 🐨 change `this.toggle` to `() => this.toggle()`
+    // to avoid passing the click event to this.toggle.
+    onClick: callAll(onClick, () => this.toggle()),
+    'aria-pressed': this.getState().on,
+    ...props,
+  })
+
+  initialState = {
+    on: this.props.initialOn,
+    toggle: this.toggle,
+    reset: this.reset,
+    getTogglerProps: this.getTogglerProps,
+  }
+  state = this.initialState
+
+  isControlled(prop) {
+    return this.props[prop] !== undefined
+  }
+
+  getState(state = this.state) {
+    return Object.entries(state).reduce((newState, [key, value]) => {
+      if (this.isControlled(key)) {
+        newState[key] = this.props[key]
+      } else {
+        newState[key] = state[key]
+      }
+      return newState
+    }, {})
+  }
+
+  internalSetState = (changes, callback) => {
+    let allChanges
+    this.setState(
+      (state) => {
+        const combinedState = this.getState(state)
+        const changesObject =
+          typeof changes === 'function'
+            ? changes(combinedState)
+            : changes
+        allChanges = this.props.stateReducer(
+          combinedState,
+          changesObject,
+        )
+        const nonControlledChanges = Object.keys(
+          combinedState,
+        ).reduce((acc, stateKey) => {
+          if (this.isControlled(stateKey)) {
+            acc[stateKey] = allChanges[stateKey]
+          }
+
+          return acc
+        }, {})
+        const {type: ignoredType, ...onlyChanges} = allChanges
+
+        return Object.keys(nonControlledChanges).length
+          ? onlyChanges
+          : null
+      },
+      () => {
+        this.props.onStateChange(allChanges, this.state)
+        callback()
+      },
+    )
+  }
+
   render() {
     // 🐨 replace this with rendering the ToggleContext.Provider
-    return this.props.children({
-      on: this.state.on,
-      toggle: this.toggle,
-    })
+    return (
+      <ToggleContext.Provider value={this.state}>
+        {this.props.children}
+      </ToggleContext.Provider>
+    )
   }
 }
 
@@ -34,6 +132,29 @@ class Toggle extends React.Component {
 // Don't make changes to the Usage component. It's here to show you how your
 // component is intended to be used and is used in the tests.
 // You can make all the tests pass by updating the Toggle component.
+
+//function Nav() {
+//  return (
+//    <Toggle.Consumer>
+//      {(toggle) => (
+//        <nav>
+//          <ul>
+//            <li>
+//              <a href="index.html">{toggle.on ? '🏠' : 'Home'}</a>
+//            </li>
+//            <li>
+//              <a href="/about">{toggle.on ? '❓' : 'About'}</a>
+//            </li>
+//            <li>
+//              <a href="index.html">{toggle.on ? '📖' : 'Blog'}</a>
+//            </li>
+//          </ul>
+//        </nav>
+//      )}
+//    </Toggle.Consumer>
+//  )
+//}
+
 const Layer1 = () => <Layer2 />
 const Layer2 = () => (
   <Toggle.Consumer>
